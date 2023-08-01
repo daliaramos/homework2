@@ -2,9 +2,11 @@ use axum::extract::{Path, Query, State};
 use axum::Json;
 
 use crate::answer::{Answer, CreateAnswer};
+use crate::comment::{Comment, CreateComment};
 use crate::db::Store;
 use crate::error::AppError;
 use crate::question::{CreateQuestion, GetQuestionById, Question, QuestionId, UpdateQuestion};
+use crate::pagePackage::PagePackage;
 
 #[allow(dead_code)]
 pub async fn root() -> String {
@@ -28,6 +30,13 @@ pub async fn get_question_by_id(
     Ok(Json(question))
 }
 
+pub async fn get_question_comment_answer_by_id(
+    State(mut am_database): State<Store>,
+    Path(query): Path<i32>,
+) -> Result<Json<PagePackage>, AppError> {
+    let question = am_database.get_question_comment_answer_by_id(QuestionId(query)).await?;
+    Ok(Json(question))
+}
 pub async fn create_question(
     State(mut am_database): State<Store>,
     Json(question): Json<CreateQuestion>,
@@ -62,4 +71,12 @@ pub async fn create_answer(
     dbg!(&answer);
     let new_answer = am_database.add_answer(answer.content, answer.question_id).await?;
     Ok(Json(new_answer))
+}
+
+pub async fn create_comment(
+    State(mut am_database): State<Store>,
+    Json(comment): Json<CreateComment>,
+) -> Result<Json<Comment>, AppError> {
+    let new_comment = am_database.add_comment(comment.content)?;
+    Ok(Json(new_comment))
 }

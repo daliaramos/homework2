@@ -1,3 +1,13 @@
+POST http://localhost:3000/answer
+Content-Type: application/json
+
+{
+  "content": "a content",
+  "question_id": 1
+}
+
+
+###
 POST http://localhost:3000/question
 Content-Type: application/json
 

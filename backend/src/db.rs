@@ -5,7 +5,9 @@ use sqlx::postgres::PgPoolOptions;
 use tracing::info;
 
 use crate::answer::{Answer, AnswerId};
+use crate::comment::{Comment};
 use crate::error::AppError;
+use crate::pagePackage::{PagePackage};
 use crate::question::{IntoQuestionId, Question, QuestionId, UpdateQuestion};
 
 #[derive(Clone)]
@@ -13,6 +15,7 @@ pub struct Store {
     pub conn_pool: PgPool,
     pub questions: Arc<Mutex<Vec<Question>>>,
     pub answers: Arc<RwLock<Vec<Answer>>>,
+    pub comments:Arc<RwLock<Vec<Comment>>>,
 }
 
 pub async fn new_pool() -> PgPool {
@@ -30,6 +33,7 @@ impl Store {
             conn_pool: pool,
             questions: Default::default(),
             answers: Default::default(),
+            comments: Default::default(),
         }
     }
 
@@ -80,6 +84,22 @@ impl Store {
         Ok(answer)
     }
 
+
+    pub fn add_comment(
+        &mut self,
+        content: String,
+    ) -> Result<Comment, AppError> {
+        let mut comment = self.comments.write().unwrap();
+        let len = comment.len() as u32;
+
+        let new_comment = Comment {
+            id: len.into(),
+            content,
+        };
+        comment.push(new_comment.clone());
+        Ok(new_comment)
+    }
+
     pub async fn get_all_questions(&mut self) -> Result<Vec<Question>, AppError> {
         let rows = sqlx::query!(
             r#"
@@ -127,6 +147,66 @@ SELECT * FROM questions
         };
 
         Ok(question)
+    }
+
+    pub async fn get_question_comment_answer_by_id<T: IntoQuestionId>(
+        &mut self,
+        id: T,
+    ) -> Result<PagePackage, AppError> {
+        let id = id.into_question_id();
+
+        let questionRow = sqlx::query!(
+            r#"
+    SELECT * FROM questions WHERE id = $1
+    "#,
+            id.0,
+        )
+            .fetch_one(&self.conn_pool)
+            .await?;
+
+        let answerRow = sqlx::query!(
+            r#"
+    SELECT * FROM answers WHERE question_id = $1
+    "#,
+            id.0,
+        )
+            .fetch_one(&self.conn_pool)
+            .await?;
+/*
+        let commentRow = sqlx::query!(
+            r#"
+    SELECT * FROM comments WHERE id = $1
+    "#,
+            id.0,
+        )
+            .fetch_one(&self.conn_pool)
+            .await?;
+*/
+        let question = Question {
+            id: questionRow.id.into(), // Assuming you have a From<u32> for QuestionId
+            title: questionRow.title,
+            content: questionRow.content,
+            tags: questionRow.tags,
+        };
+
+        let answer = Answer {
+            id: answerRow.id.into(),
+            content: answerRow.content,
+            question_id: questionRow.id.into(),
+        };
+/*
+        let comment = Comment {
+            id: row.id.into(),
+            content: row.content,
+        };
+*/
+        let page = PagePackage {
+            question: question,
+            //question_comments: Option<Vec<Comment>>,
+            answers: answer,
+            //answer_comments: Option<Vec<Comment>>
+        };
+        Ok(page)
     }
 
     pub async fn add_question(
@@ -204,6 +284,9 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
         Ok(())
     }
 }
+
+
+
 
 #[cfg(test)]
 mod tests {

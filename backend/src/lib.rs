@@ -15,7 +15,8 @@ pub mod handlers;
 pub mod layers;
 pub mod question;
 pub mod routes;
-
+pub mod comment;
+pub mod pagePackage;
 pub async fn run_backend() {
     dotenv().ok();
     init_logging();
